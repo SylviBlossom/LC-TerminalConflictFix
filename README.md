@@ -1,2 +1,4 @@
-# TemplateMod
-A template for a BepInEx 5 Plugin, using the correct .csproj configuration for Lethal Company modding
+# Terminal Conflict Fix
+Narrows down terminal conflicts if more letters match one word than another.
+
+This solves issues like "teleporter" buying a television if you input it partially (like "telep"), and conflicts between modded terminal commands.
