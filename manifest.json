@@ -1,6 +1,6 @@
 {
     "name": "TerminalConflictFix",
-    "version_number": "1.0.0",
+    "version_number": "1.1.0",
     "website_url": "https://github.com/SylviBlossom/LC-TerminalConflictFix",
     "description": "Narrows down terminal conflicts if more letters match one word than another",
     "dependencies": [

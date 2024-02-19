@@ -11,19 +11,22 @@ namespace TerminalConflictFix;
 public class Plugin : BaseUnityPlugin
 {
 	public static Plugin Instance { get; internal set; }
+	public static new Config Config { get; internal set; }
 	public static new ManualLogSource Logger { get; internal set; }
 
 	private void Awake()
 	{
 		Instance = this;
+		Config = new(base.Config);
 		Logger = base.Logger;
 
 		Harmony.CreateAndPatchAll(typeof(Plugin), PluginInfo.PLUGIN_GUID);
 
 		// Plugin startup logic
-		Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
+		Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_NAME} is loaded!");
 	}
 
+	private static string currentWord;
 	private static TerminalNode longestMatch;
 	private static int matchLength;
 
@@ -46,6 +49,48 @@ public class Plugin : BaseUnityPlugin
 		cursor.EmitDelegate(() =>
 		{
 			matchLength = 0;
+		});
+
+		var iLoc = -1;
+
+		if (!cursor.TryFindNext(out _,
+				instr1 => instr1.MatchLdfld<TerminalNodesList>("allKeywords"),
+				instr2 => instr2.MatchLdloc(out iLoc)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.ParseWord @ Find 'i' variable");
+			return;
+		}
+
+		if (!cursor.TryGotoNext(MoveType.After,
+				instr1 => instr1.MatchLdfld<Terminal>("hasGottenVerb"),
+				instr2 => instr2.MatchBrtrue(out _)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.ParseWord @ currentWord optimization");
+			return;
+		}
+
+		cursor.MoveAfterLabels();
+		cursor.Emit(OpCodes.Ldarg_0);
+		cursor.Emit(OpCodes.Ldloc, iLoc);
+		cursor.EmitDelegate<Action<Terminal, int>>((self, i) =>
+		{
+			currentWord = self.terminalNodes.allKeywords[i].word;
+
+			if (Config.RemoveCommandPunctuation.Value)
+			{
+				currentWord = self.RemovePunctuation(currentWord);
+			}
+		});
+
+		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdfld<TerminalKeyword>("word")))
+		{
+			Logger.LogError("Failed IL hook for Terminal.ParseWord @ Fix word dashes 1");
+			return;
+		}
+
+		cursor.EmitDelegate<Func<string, string>>(word =>
+		{
+			return currentWord;
 		});
 
 		var continueLabel = default(ILLabel);
@@ -78,6 +123,17 @@ public class Plugin : BaseUnityPlugin
 			return j <= matchLength;
 		});
 		cursor.Emit(OpCodes.Brtrue_S, continueLabel);
+
+		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdfld<TerminalKeyword>("word")))
+		{
+			Logger.LogError("Failed IL hook for Terminal.ParseWord @ Fix word dashes 2");
+			return;
+		}
+
+		cursor.EmitDelegate<Func<string, string>>(word =>
+		{
+			return currentWord;
+		});
 
 		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchStloc(keywordLoc)))
 		{
@@ -129,6 +185,18 @@ public class Plugin : BaseUnityPlugin
 			return j <= matchLength;
 		});
 		cursor.Emit(OpCodes.Brtrue_S, loopEnd);
+
+		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdfld<TerminalKeyword>("word")))
+		{
+			Logger.LogError("Failed IL hook for Terminal.ParseWordOverrideOptions @ Fix word dashes");
+			return;
+		}
+
+		cursor.Emit(OpCodes.Ldarg_0);
+		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
+		{
+			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word) : word;
+		});
 
 		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdfld<CompatibleNoun>("result")))
 		{
