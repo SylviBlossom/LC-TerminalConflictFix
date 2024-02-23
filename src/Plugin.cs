@@ -248,4 +248,23 @@ public class Plugin : BaseUnityPlugin
 			return longestMatch;
 		});
 	}
+
+	[HarmonyILManipulator]
+	[HarmonyPatch(typeof(Terminal), "CheckForExactSentences")]
+	private static void Terminal_CheckForExactSentences(ILContext il)
+	{
+		var cursor = new ILCursor(il);
+
+		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdfld<TerminalKeyword>("word")))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForExactSentences @ Word");
+			return;
+		}
+
+		cursor.Emit(OpCodes.Ldarg_0);
+		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
+		{
+			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word.Replace(' ', '-')) : word;
+		});
+	}
 }
