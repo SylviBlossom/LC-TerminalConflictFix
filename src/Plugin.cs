@@ -78,7 +78,7 @@ public class Plugin : BaseUnityPlugin
 
 			if (Config.RemoveCommandPunctuation.Value)
 			{
-				currentWord = self.RemovePunctuation(currentWord);
+				currentWord = self.RemovePunctuation(currentWord.Replace(' ', '-'));
 			}
 		});
 
@@ -142,11 +142,10 @@ public class Plugin : BaseUnityPlugin
 		}
 
 		cursor.Emit(OpCodes.Ldloc, jLoc);
-		cursor.Emit(OpCodes.Ldloc, keywordLoc);
-		cursor.EmitDelegate<Action<int, TerminalKeyword>>((j, keyword) =>
+		cursor.EmitDelegate<Action<int>>(j =>
 		{
 			matchLength = j;
-			Logger.LogInfo($"Parsed \"{keyword.word}\" with {j} letters");
+			Logger.LogInfo($"Parsed \"{currentWord}\" with {j} letters");
 		});
 	}
 
@@ -195,7 +194,7 @@ public class Plugin : BaseUnityPlugin
 		cursor.Emit(OpCodes.Ldarg_0);
 		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
 		{
-			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word) : word;
+			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word.Replace(' ', '-')) : word;
 		});
 
 		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdfld<CompatibleNoun>("result")))
@@ -207,11 +206,19 @@ public class Plugin : BaseUnityPlugin
 		cursor.Emit(OpCodes.Ldloc, jLoc);
 		cursor.Emit(OpCodes.Ldloc, iLoc);
 		cursor.Emit(OpCodes.Ldarg_2);
-		cursor.EmitDelegate<Action<TerminalNode, int, int, CompatibleNoun[]>>((result, j, i, options) =>
+		cursor.Emit(OpCodes.Ldarg_0);
+		cursor.EmitDelegate<Action<TerminalNode, int, int, CompatibleNoun[], Terminal>>((result, j, i, options, self) =>
 		{
 			longestMatch = result;
 			matchLength = j;
-			Logger.LogInfo($"Parsed \"{options[i].noun.word}\" with {j} letters");
+
+			var word = options[i].noun.word;
+			if (Config.RemoveCommandPunctuation.Value)
+			{
+				word = self.RemovePunctuation(word.Replace(' ', '-'));
+			}
+
+			Logger.LogInfo($"Parsed \"{word}\" with {j} letters");
 		});
 		cursor.Emit(OpCodes.Br_S, loopContinue);
 		cursor.Emit(OpCodes.Ldnull);
