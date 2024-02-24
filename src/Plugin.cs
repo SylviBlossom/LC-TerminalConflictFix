@@ -28,6 +28,7 @@ public class Plugin : BaseUnityPlugin
 
 	private static string currentWord;
 	private static TerminalNode longestMatch;
+	private static int longestMatchIndex;
 	private static int matchLength;
 
 	[HarmonyILManipulator]
@@ -265,6 +266,127 @@ public class Plugin : BaseUnityPlugin
 		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
 		{
 			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word.Replace(' ', '-')) : word;
+		});
+	}
+
+	[HarmonyILManipulator]
+	[HarmonyPatch(typeof(Terminal), "CheckForPlayerNameCommand")]
+	private static void Terminal_CheckForPlayerNameCommand(ILContext il)
+	{
+		var cursor = new ILCursor(il);
+
+		if (!cursor.TryGotoNext(MoveType.After,
+				instr1 => instr1.MatchCallOrCallvirt<string>("ToLower"),
+				instr2 => instr2.MatchStloc(out _)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ Check exact");
+			return;
+		}
+
+		cursor.Index--;
+		cursor.Emit(OpCodes.Ldarg_0);
+		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
+		{
+			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word.Replace(' ', '-')) : word;
+		});
+
+		var kLoc = -1;
+
+		if (!cursor.TryGotoNext(MoveType.Before,
+				instr1 => instr1.MatchStloc(out kLoc),
+				instr2 => instr2.MatchBr(out _)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ Before loop");
+			return;
+		}
+
+		cursor.Index--;
+		cursor.EmitDelegate(() =>
+		{
+			longestMatchIndex = -1;
+			matchLength = 0;
+		});
+
+		var textLoc = -1;
+
+		if (!cursor.TryGotoNext(MoveType.After,
+				instr1 => instr1.MatchCallOrCallvirt<string>("ToLower"),
+				instr2 => instr2.MatchStloc(out textLoc)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ Player name variable");
+			return;
+		}
+
+		cursor.Index--;
+		cursor.Emit(OpCodes.Ldarg_0);
+		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
+		{
+			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word.Replace(' ', '-')) : word;
+		});
+
+		var lLoc = -1;
+		var substrLoopMidEnd = default(ILLabel);
+
+		if (!cursor.TryGotoNext(MoveType.After,
+				instr1 => instr1.MatchStloc(out lLoc),
+				instr2 => instr2.MatchBr(out substrLoopMidEnd)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ Start substring loop");
+			return;
+		}
+
+		var substrLoopEnd = cursor.DefineLabel();
+
+		cursor.MoveAfterLabels();
+		cursor.Emit(OpCodes.Ldloc, lLoc);
+		cursor.EmitDelegate<Func<int, bool>>(l =>
+		{
+			return l <= matchLength;
+		});
+		cursor.Emit(OpCodes.Brtrue_S, substrLoopEnd);
+
+		if (!cursor.TryGotoNext(MoveType.After, instr1 => instr1.MatchLdloc(kLoc)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ Original return match");
+			return;
+		}
+
+		var skipReturnLabel = cursor.DefineLabel();
+		cursor.Emit(OpCodes.Ldloc, lLoc);
+		cursor.Emit(OpCodes.Ldloc, textLoc);
+		cursor.EmitDelegate<Action<int, int, string>>((k, l, text) =>
+		{
+			longestMatchIndex = k;
+			matchLength = l;
+
+			Logger.LogInfo($"Parsed player name \"{text}\" with {l} letters");
+		});
+		cursor.Emit(OpCodes.Br_S, skipReturnLabel);
+		cursor.Emit(OpCodes.Ldnull);
+
+		cursor.Index++;
+		cursor.MarkLabel(skipReturnLabel);
+
+		cursor.GotoLabel(substrLoopMidEnd);
+
+		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchBgt(out _)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ End substring loop");
+			return;
+		}
+
+		cursor.MarkLabel(substrLoopEnd);
+
+		if (!cursor.TryGotoNext(MoveType.After, instr => instr.MatchLdcI4(-1)))
+		{
+			Logger.LogError("Failed IL hook for Terminal.CheckForPlayerNameCommand @ Final return");
+			return;
+		}
+
+		cursor.Emit(OpCodes.Pop);
+		cursor.EmitDelegate(() =>
+		{
+			return longestMatchIndex;
 		});
 	}
 }
