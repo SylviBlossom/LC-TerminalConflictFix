@@ -265,7 +265,7 @@ public class Plugin : BaseUnityPlugin
 		cursor.Emit(OpCodes.Ldarg_0);
 		cursor.EmitDelegate<Func<string, Terminal, string>>((word, self) =>
 		{
-			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word.Replace(' ', '-')) : word;
+			return Config.RemoveCommandPunctuation.Value ? self.RemovePunctuation(word) : word;
 		});
 	}
 
