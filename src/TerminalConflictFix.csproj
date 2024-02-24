@@ -23,6 +23,9 @@
       <Reference Include="Assembly-CSharp">
         <HintPath>..\lib-stripped\Managed-v49-strip\Assembly-CSharp.dll</HintPath>
       </Reference>
+      <Reference Include="MMHOOK_Assembly-CSharp">
+        <HintPath>..\lib-stripped\MMHOOK-v49-strip\MMHOOK_Assembly-CSharp.dll</HintPath>
+      </Reference>
       <Reference Include="Unity.Netcode.Runtime">
         <HintPath>..\lib-stripped\UnityEngine-strip\Unity.Netcode.Runtime.dll</HintPath>
       </Reference>

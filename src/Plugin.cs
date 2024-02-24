@@ -1,6 +1,5 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
-using HarmonyLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -20,7 +19,10 @@ public class Plugin : BaseUnityPlugin
 		Config = new(base.Config);
 		Logger = base.Logger;
 
-		Harmony.CreateAndPatchAll(typeof(Plugin), PluginInfo.PLUGIN_GUID);
+		IL.Terminal.ParseWord += Terminal_ParseWord;
+		IL.Terminal.ParseWordOverrideOptions += Terminal_ParseWordOverrideOptions;
+		IL.Terminal.CheckForExactSentences += Terminal_CheckForExactSentences;
+		IL.Terminal.CheckForPlayerNameCommand += Terminal_CheckForPlayerNameCommand;
 
 		// Plugin startup logic
 		Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_NAME} is loaded!");
@@ -31,8 +33,6 @@ public class Plugin : BaseUnityPlugin
 	private static int longestMatchIndex;
 	private static int matchLength;
 
-	[HarmonyILManipulator]
-	[HarmonyPatch(typeof(Terminal), "ParseWord")]
 	private static void Terminal_ParseWord(ILContext il)
 	{
 		var cursor = new ILCursor(il);
@@ -150,8 +150,6 @@ public class Plugin : BaseUnityPlugin
 		});
 	}
 
-	[HarmonyILManipulator]
-	[HarmonyPatch(typeof(Terminal), "ParseWordOverrideOptions")]
 	private static void Terminal_ParseWordOverrideOptions(ILContext il)
 	{
 		var cursor = new ILCursor(il);
@@ -250,8 +248,6 @@ public class Plugin : BaseUnityPlugin
 		});
 	}
 
-	[HarmonyILManipulator]
-	[HarmonyPatch(typeof(Terminal), "CheckForExactSentences")]
 	private static void Terminal_CheckForExactSentences(ILContext il)
 	{
 		var cursor = new ILCursor(il);
@@ -269,8 +265,6 @@ public class Plugin : BaseUnityPlugin
 		});
 	}
 
-	[HarmonyILManipulator]
-	[HarmonyPatch(typeof(Terminal), "CheckForPlayerNameCommand")]
 	private static void Terminal_CheckForPlayerNameCommand(ILContext il)
 	{
 		var cursor = new ILCursor(il);
