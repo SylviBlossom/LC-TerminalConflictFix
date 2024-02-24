@@ -1,3 +1,6 @@
+### v1.2.1
+- Use HookGenPatcher to fix compatibility issues
+
 ### v1.2.0
 - Applied fixes to player name input (for commands like 'switch')
 - Fixed actual spaces in command names not being removed
