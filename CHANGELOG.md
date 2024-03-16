@@ -1,3 +1,6 @@
+### v1.2.2
+- Fix invalid IL return type (small compatibility issue)
+
 ### v1.2.1
 - Use HookGenPatcher to fix compatibility issues
 
