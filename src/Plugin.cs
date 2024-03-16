@@ -356,7 +356,7 @@ public class Plugin : BaseUnityPlugin
 			Logger.LogInfo($"Parsed player name \"{text}\" with {l} letters");
 		});
 		cursor.Emit(OpCodes.Br_S, skipReturnLabel);
-		cursor.Emit(OpCodes.Ldnull);
+		cursor.Emit(OpCodes.Ldc_I4_M1);
 
 		cursor.Index++;
 		cursor.MarkLabel(skipReturnLabel);
